@@ -20,6 +20,7 @@ module Bundle
       def run(global: false, file: nil, force: false, zap: false)
         casks = casks_to_uninstall(global: global, file: file)
         formulae = formulae_to_uninstall(global: global, file: file)
+        mas_apps = mas_apps_to_uninstall(global: global, file: file)
         taps = taps_to_untap(global: global, file: file)
         if force
           if casks.any?
@@ -31,6 +32,13 @@ module Bundle
           if formulae.any?
             Kernel.system HOMEBREW_BREW_FILE, "uninstall", "--formula", "--force", *formulae
             puts "Uninstalled #{formulae.size} formula#{(formulae.size == 1) ? "" : "e"}"
+          end
+
+          if mas_apps.any?
+            mas_apps.each do |id, name|
+              Bundle::MacAppStoreInstaller.uninstall(name, id.to_i)
+            end
+            puts "Uninstalled #{mas_apps.size} mas app#{(mas_apps.size == 1) ? "" : "s"}"
           end
 
           Kernel.system HOMEBREW_BREW_FILE, "untap", *taps if taps.any?
@@ -53,13 +61,18 @@ module Bundle
             puts Formatter.columns taps
           end
 
+          if mas_apps.any?
+            puts "Would uninstall Mac App Store apps:"
+            puts Formatter.columns mas_apps.map(&:last)
+          end
+
           cleanup = system_output_no_stderr(HOMEBREW_BREW_FILE, "cleanup", "--dry-run")
           unless cleanup.empty?
             puts "Would `brew cleanup`:"
             puts cleanup
           end
 
-          if casks.any? || formulae.any? || taps.any? || !cleanup.empty?
+          if casks.any? || formulae.any? || taps.any? || mas_apps.any? || !cleanup.empty?
             puts "Run `brew bundle cleanup --force` to make these changes."
           end
         end
@@ -86,6 +99,17 @@ module Bundle
           Bundle::BrewInstaller.formula_in_array?(f[:full_name], kept_formulae)
         end
         current_formulae.map { |f| f[:full_name] }
+      end
+
+      def mas_apps_to_uninstall(global: false, file: nil)
+        Bundle::MacAppStoreDumper.apps - kept_mas_apps(global: global, file: file)
+      end
+
+      def kept_mas_apps(global: false, file: nil)
+        return @kept_mas_apps if @kept_mas_apps
+
+        dsl ||= Bundle::Dsl.new(Brewfile.read(global: global, file: file))
+        @kept_mas_apps = dsl.entries.select { |e| e.type == :mas }.map { |app| [app.options[:id].to_s, app.name] }
       end
 
       def kept_casks(global: false, file: nil)

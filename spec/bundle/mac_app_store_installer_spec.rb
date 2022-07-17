@@ -101,6 +101,17 @@ describe Bundle::MacAppStoreInstaller do
           expect(described_class.install("foo", 123)).to be(true)
         end
       end
+
+      context "when app wants uninstalling" do
+        before do
+          allow(described_class).to receive(:installed_app_ids).and_return([987654321])
+        end
+
+        it "uninstalls app" do
+          expect(Bundle).to receive(:system).with("mas", "uninstall", "123", verbose: false).and_return(true)
+          expect(described_class.uninstall("MyApp2", 987654321)).to be(true)
+        end
+      end
     end
   end
 end

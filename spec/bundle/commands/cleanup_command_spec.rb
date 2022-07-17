@@ -20,6 +20,7 @@ describe Bundle::Commands::Cleanup do
         brew 'homebrew/tap/hasdependency'
         brew 'hasbuilddependency1'
         brew 'hasbuilddependency2'
+        mas 'MyApp1', id: 123456789
       EOS
     end
 
@@ -65,6 +66,11 @@ describe Bundle::Commands::Cleanup do
       ]
     end
 
+    it 'computes which mas apps to uninstall' do
+      allow(Bundle::MacAppStoreDumper).to receive(:apps).and_return([["123456789", "MyApp1"], ["987654321", "MyApp2"]])
+      expect(described_class.mas_apps_to_uninstall).to eql([["987654321", "MyApp2"]])
+    end
+
     it "computes which tap to untap" do
       allow(Bundle::TapDumper).to receive(:tap_names).and_return(%w[z homebrew/bundle homebrew/core])
       expect(described_class.taps_to_untap).to eql(%w[z])
@@ -76,6 +82,7 @@ describe Bundle::Commands::Cleanup do
       described_class.reset!
       allow(described_class).to receive(:casks_to_uninstall).and_return([])
       allow(described_class).to receive(:formulae_to_uninstall).and_return([])
+      allow(described_class).to receive(:mas_apps_to_uninstall).and_return([])
       allow(described_class).to receive(:taps_to_untap).and_return([])
     end
 
@@ -91,6 +98,7 @@ describe Bundle::Commands::Cleanup do
       described_class.reset!
       allow(described_class).to receive(:casks_to_uninstall).and_return(%w[a b])
       allow(described_class).to receive(:formulae_to_uninstall).and_return([])
+      allow(described_class).to receive(:mas_apps_to_uninstall).and_return([])
       allow(described_class).to receive(:taps_to_untap).and_return([])
     end
 
@@ -106,6 +114,7 @@ describe Bundle::Commands::Cleanup do
       described_class.reset!
       allow(described_class).to receive(:casks_to_uninstall).and_return(%w[a b])
       allow(described_class).to receive(:formulae_to_uninstall).and_return([])
+      allow(described_class).to receive(:mas_apps_to_uninstall).and_return([])
       allow(described_class).to receive(:taps_to_untap).and_return([])
     end
 
@@ -121,6 +130,7 @@ describe Bundle::Commands::Cleanup do
       described_class.reset!
       allow(described_class).to receive(:casks_to_uninstall).and_return([])
       allow(described_class).to receive(:formulae_to_uninstall).and_return(%w[a b])
+      allow(described_class).to receive(:mas_apps_to_uninstall).and_return([])
       allow(described_class).to receive(:taps_to_untap).and_return([])
     end
 
@@ -131,11 +141,28 @@ describe Bundle::Commands::Cleanup do
     end
   end
 
+  context "when there are mas apps to uninstall" do
+    before do
+      described_class.reset!
+      allow(described_class).to receive(:casks_to_uninstall).and_return([])
+      allow(described_class).to receive(:formulae_to_uninstall).and_return([])
+      allow(described_class).to receive(:mas_apps_to_uninstall).and_return(%w[MyApp2])
+      allow(described_class).to receive(:taps_to_untap).and_return([])
+    end
+
+    it "uninstalls mas apps" do
+      expect(Kernel).to receive(:system).with("sudo", "mas", "uninstall", "--force", "987654321")
+      expect(described_class).to receive(:system_output_no_stderr).and_return("")
+      expect { described_class.run(force: true) }.to output(/Uninstalled 1 mas app/).to_stdout
+    end
+  end
+
   context "when there are taps to untap" do
     before do
       described_class.reset!
       allow(described_class).to receive(:casks_to_uninstall).and_return([])
       allow(described_class).to receive(:formulae_to_uninstall).and_return([])
+      allow(described_class).to receive(:mas_apps_to_uninstall).and_return([])
       allow(described_class).to receive(:taps_to_untap).and_return(%w[a b])
     end
 
@@ -151,6 +178,7 @@ describe Bundle::Commands::Cleanup do
       described_class.reset!
       allow(described_class).to receive(:casks_to_uninstall).and_return(%w[a b])
       allow(described_class).to receive(:formulae_to_uninstall).and_return(%w[a b])
+      allow(described_class).to receive(:mas_apps_to_uninstall).and_return([])
       allow(described_class).to receive(:taps_to_untap).and_return(%w[a b])
     end
 
@@ -167,6 +195,7 @@ describe Bundle::Commands::Cleanup do
       described_class.reset!
       allow(described_class).to receive(:casks_to_uninstall).and_return([])
       allow(described_class).to receive(:formulae_to_uninstall).and_return([])
+      allow(described_class).to receive(:mas_apps_to_uninstall).and_return([])
       allow(described_class).to receive(:taps_to_untap).and_return([])
     end
 

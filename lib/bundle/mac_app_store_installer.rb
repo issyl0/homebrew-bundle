@@ -50,6 +50,15 @@ module Bundle
       true
     end
 
+    def uninstall(name, id, verbose: false)
+      puts "Uninstalling #{name} app. It is installed." if verbose
+
+      return false unless Bundle.system "sudo", "mas", "uninstall", id.to_s, verbose: verbose
+
+      installed_app_ids.delete(id)
+      true
+    end
+
     def self.app_id_installed_and_up_to_date?(id, no_upgrade: false)
       return false unless app_id_installed?(id)
       return true if no_upgrade
